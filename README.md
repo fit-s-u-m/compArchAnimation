@@ -1,141 +1,50 @@
-# P5.js-vite Starter Template 🚀
+# Computer Architecure project
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
-[Vite](https://vitejs.dev/) starter template to scaffold a new [p5.js](https://p5js.org) project.
+## Description
+Write an application program that illustrates/simulates the following workings of a computer system:
 
-This is an unopinionated template; aside from P5.js and Vite, the rest of your project's tools are entirely up to you.
+1. Cache Mapping Techniques
+2. Microprogrammed Control Unit Implementation
+3. Instruction Pipelining
 
-## Live demo
+PART I) Write an application program that implements Cache mapping techniques:
 
-For a live demo please [visit this page](https://p5js-vite-demo.surge.sh).
+-  Direct Mapping
+- Associative Mapping
+- Set-Associative Mapping
 
-## Installation
+Your program should (at least) do the following:
 
-Pull the template files with [degit](https://github.com/Rich-Harris/degit) and install dependencies.
+1.  Allow the user to select the mapping technique he/she wants to visualize
+1.  Based on the technique selected, allow to visualize the cache content
+1.  Generate a random word (requested by the processor) and make sure if it is in cache(hit) or not (miss)
+1.  If hit, deliver to processor register. If miss, bring the word (a block containing the requested word) and deliver the word to the processor.
+1. Cache should always hold a portion of main memory at any given time
+1. Main memory content may be some randomly generated blocks of words.
+1. If cache is full, allow the user to make decide which replacement technique to use.(Remember that in direct mapping that is not required).
 
-```
-npx degit makinteract/p5js-vite my-project
+PART II) Write an application program that implements microprogrammed control:
+- Vertical implementation
+- Horizontal implementation
 
-cd my-project
-npm install
-npm run dev
-```
+Your program should (at least) do the following:
 
-## npm scripts
+- Allow the user to select the implementation type
+- The user provides the specifications of his processor
+-  Number of registers
+-  Number of supported ALU functions
+-  An instruction to execute
+-  Optionally, you may allow her/him to select the number of buses (3-, 2- or
+1-bus organization)
+- Show sequence of microoperations for the given instruction with their
+corresponding time.
+- Display the final control word (rows of bits representing the respective microoperations)
 
-- `npm run dev` - Starts the development server at port [3000](http://localhost:3000/)
-- `npm run build` - Builds the application in a `dist` folder
-- `npm run preview` - Serves the build files (`dist` folder) locally at port [5000](http://localhost:3000/)
-
-Note that if after this last command you do not see anything, you can use instead this other command:
-
-- `npm run preview --host` - You should then be able to see your files locally at port [5000](http://localhost:3000/)
-
-## A single p5.js sketch
-
-```js
-import '../css/style.css';
-import { sketch } from 'p5js-wrapper';
-
-sketch.setup = function () {
-  createCanvas(800, 600);
-};
-
-sketch.draw = function () {
-  background(127); // grey
-  fill(255, 0, 0); // red
-  noStroke();
-  rectMode(CENTER);
-  rect(width / 2, height / 2, 50, 50);
-};
-
-sketch.mousePressed = function () {
-  console.log(`I am here at ${mouseX}:${mouseY}`);
-};
-```
-
-And here the body of the html file:
-
-```html
-<body>
-  <script type="module" src="/src/single_sketch.js"></script>
-</body>
-```
-
-## Multiple p5.js sketches
-
-If you want to use multiple sketches, you need to use a different syntax.
-
-```js
-import '../css/style.css';
-import { p5 } from 'p5js-wrapper';
-
-let sketch1 = new p5((p) => {
-  p.setup = () => {
-    const one = document.getElementById('one');
-    p.createCanvas(one.clientWidth, one.clientHeight);
-  };
-
-  p.draw = () => {
-    p.background(100);
-  };
-}, 'one');
-
-// Sketch2
-let sketch2 = new p5((p) => {
-  p.setup = () => {
-    const two = document.getElementById('two');
-    p.createCanvas(two.clientWidth, two.clientHeight);
-  };
-
-  p.draw = () => {
-    p.background(170);
-  };
-}, 'two');
-```
-
-This file is expecting two divs in the html file:
-
-```html
-<body>
-  <script type="module" src="/src/multi_sketch.js"></script>
-  <div id="one"></div>
-  <div id="two"></div>
-</body>
-```
-
-## Adding sound
-
-Sound is an [experimental feature](https://github.com/makinteract/p5js-wrapper/blob/main/README_SOUND.md).
-
-Examples usage:
-
-```js
-import { sketch } from 'p5js-wrapper';
-import 'p5js-wrapper/sound';
-
-import mysound from './mysound.mp3';
-
-let soundEffect;
-
-sketch.setup = function () {
-  createCanvas(100, 100);
-  soundEffect = loadSound(mysound);
-};
-
-sketch.draw = function () {
-  background('#eeeeee');
-};
-
-// Play sound on click
-sketch.mousePressed = function () {
-  soundEffect.play();
-};
-```
-
-This example assumes you have a file _mysound.mp3_ in the _src_ folder.
+##### You may expand the application to support more features than stated. That would be a plus!
 
 ## License
 
 This project is open source and available under the [MIT License](LICENSE).
+
