@@ -1,0 +1,36 @@
+.contaner{
+  display:flex;
+  height:100vh;
+  flex-direction:column;
+  gap:1em;
+  background-color: rgb(100, 100, 100);
+}
+.input_cont{
+  display: flex;
+  gap:5em;
+  margin-top:5em;
+  margin-left:5em;
+  font-size: 2em;
+  /* flex-direction:column; */
+}
+#lable{
+  display: flex;
+  flex-direction:column;
+  gap:5px;
+}
+#inputs{
+  display: flex;
+  flex-direction:column;
+  gap:5px;
+}
+input{
+  font-size: 1em;
+}
+button{
+  font-size: 2em;
+}
+/* #clock_control{ */
+/*   display:flex; */
+/*   gap:10px; */
+/*   justify-content: center; */
+/* } */

@@ -2,17 +2,30 @@ import '../css/style.css'
 import {sketch} from 'p5js-wrapper';
 import * as R from 'ramda'
 
-const wordSize = 8
-const wordPerBlock = 2
-const numBlock = 16
-const cachelength = 4
-const cacheList = []
-const tagCount  = Math.floor(Math.log2(numBlock/cachelength)) 
-const lineCount = Math.floor(Math.log2(cachelength)) 
-const wordCount = Math.floor(Math.log2(wordPerBlock)) 
+let wordSize = 8
+let wordPerBlock = 2
+let  numBlock = 16
+let cachelength = 4
+let missHit = []
+let tagCount  = Math.floor(Math.log2(numBlock/cachelength)) 
+let lineCount = Math.floor(Math.log2(cachelength)) 
+let wordCount = Math.floor(Math.log2(wordPerBlock)) 
+
+let instructionSize = tagCount+lineCount+wordCount
+let n=0;
+let globalBlockHighlight = null
+let metaInstruction =[]
+let mappingInput
+let numBlockInput
+let wordSizeInput
+let cachelengthInput
+let wordPerBlockInput
+let prevButton
+let nextButton 
+let mapping = "direct"
 
 
-const colors = ["red","blue","green","yellow","purple","cyan"]
+const colors = ["blue","green","yellow","purple","cyan"]
 
 const memory = []
 const metaMemory = []
@@ -21,32 +34,110 @@ const  instructions=[]
 let cache // global cache access
 
 sketch.setup = function(){
-  createCanvas (windowWidth/1.01, windowHeight/1.01);
-  makeMemory(numBlock,wordPerBlock,wordSize)
+  createCanvas (windowWidth/1.01, windowHeight/1.01)
+    .parent("canvas")
 
-  // makeInstruction
-  let instructionSize = tagCount+lineCount+wordCount
-  instructions.push(makeInstruction(instructionSize))
-  instructions.push(makeInstruction(instructionSize))
-  instructions.push(makeInstruction(instructionSize))
+  prevButton =createButton("prev")
+    .mousePressed(prev)
+    .parent("clock_control")
+  nextButton = createButton("next")
+    .mousePressed(next)
+    .parent("clock_control")
 
-  cache=new Cache(cachelength,tagCount,wordPerBlock,wordSize) // create a cache
-  for(let i=0;i<instructions.length;i++){
-    cache.copyDirect(memory,i)
+  
+  const numBlockLable = createElement("lable","num of block")
+    .parent("lable")
+  numBlockInput = createInput(16,"number")
+    .parent("inputs")
+    .id("numBlock")
+
+  const wordSizeLable = createElement("lable","word size")
+    .parent("lable")
+  wordSizeInput = createInput(8,"number")
+    .parent("inputs")
+    .id("wordSize")
+
+  const cachelengthLable = createElement("lable","cache length")
+    .parent("lable")
+  cachelengthInput = createInput(4,"number")
+    .parent("inputs")
+    .id("cachelength")
+
+  const wordPerBlockLable = createElement("lable","word per block")
+   .parent("lable")
+  wordPerBlockInput = createInput(2,"number")
+    .parent("inputs")
+    .id("wordPerBlock")
+
+  // mappingInput = createSelect("options", [ "direct" ,"associtive", "set associtive"])
+  const mappingLable = createElement("lable","mapping")
+   .parent("lable")
+  mappingInput = createSelect()
+    .parent("inputs")
+    .id("mapping")
+
+    mappingInput.option("direct")
+    mappingInput.option("associtive")
+    mappingInput.option("set associtive")
+    mappingInput.size(500,30)
+  
+  makeMemory (numBlock,wordPerBlock,wordSize)
+  cache=new Cache (cachelength,tagCount,wordPerBlock,wordSize) // create a cache
+}
+function reDraw(){
+  memory.length=0
+  metaMemory.length=0
+  makeMemory (numBlock,wordPerBlock,wordSize)
+  cache=new Cache (cachelength,tagCount,wordPerBlock,wordSize) // create a cache
+}
+function prev(){
+  if(n>0)
+   n--
+}
+function next(){
+   n++
+}
+function setMapping(){
+  if(mapping=="direct"){
+    tagCount  = Math.ceil(Math.log2(numBlock/cachelength)) 
+    lineCount = Math.ceil(Math.log2(cachelength)) 
+    wordCount = Math.ceil(Math.log2(wordPerBlock)) 
   }
-  instructions.forEach((i,index)=>cache.copyDirect(memory,index))
+  else if(mapping="associtive"){
+    tagCount  = Math.ceil(Math.log2(numBlock)) 
+    lineCount = 0
+    wordCount = Math.ceil(Math.log2(wordPerBlock)) 
+  }
+  instructionSize = tagCount+lineCount+wordCount 
 }
 
+// setInterval(step,3000)
 
-sketch.draw= function(){
+sketch.draw = function(){
   colorMode(RGB)
-  background(100);
+  background(100)
+  strokeWeight(1)
   noFill()
-  const buff = width/8
-  showMemory(width/2+buff,10,width/3,height-30,memory) // display the memory
-  cache.show(10,10,width/2+50,height/2) // display the cache
-  instructions.forEach((i,index)=>showWord(10,height/2+20+(index+1)*30,width/2,30, i)) // display instruction
+  numBlock = numBlockInput.value()
+  wordSize = wordSizeInput.value()
+  cachelength = cachelengthInput.value()
+  wordPerBlock = wordPerBlockInput.value()
+  mapping = mappingInput.value()
+
+  numBlockInput.changed(reDraw)
+  wordSizeInput.changed(reDraw)
+  cachelengthInput.changed(reDraw)
+  wordPerBlockInput.changed(reDraw)
+  mappingInput.changed(reDraw)
+
+  const buff = width/16
+  showMemory(width/2+buff,10,width/3+buff+buff/2,height-30,memory) // display the memory
+  cache.show(10,10,width/2+50,height/4) // display the cache
+  setMapping()
+
+  clock(n)
 }
+
 
 
 
@@ -62,10 +153,11 @@ function makeMemory(numBlock,wordPerBlock,wordSize){
     metaMemory.push({})
    }
 }
+
 function makeInstruction (size){
   return randomWord(size)
 }
-function showWord(x,y,w,h,word,recColor="white"){
+function showWord(x,y,w,h,word,recColor="white",text_size=20){
   let div = w/word.length
   for(let i =x, j=0; i<x+w,j<word.length;  i+=div,j++){
     stroke(recColor)
@@ -76,20 +168,22 @@ function showWord(x,y,w,h,word,recColor="white"){
       stroke(0)
     if(num==1)
       stroke(255)
+    textSize(text_size)
     text(num,i+div/2,y+h/2+5)
   }
 }
 function showBlock(x,y,w,h,block,color="white"){
   let div = h/block.length
   for(let i=0;i<block.length;i++){
-    showWord(x,y+(i*div),w,div,block[i],color)
+    showWord(x,y+(i*div),w,div,block[i],color,div/1.1)
   }
 }
 function showMemory(x,y,w,h,memory){
-  let div = h/memory.length
+  const div = h/memory.length
   for(let i=0;i<memory.length;i++){
     metaMemory[i] = {x,y:y+(i*div),w,div}
-    if(mouseX>x && mouseX<x+w && mouseY>y+(i*div) && mouseY<y+(i*div)+div){
+    const isIn = mouseX>x && mouseX<x+w && mouseY>y+(i*div) && mouseY<y+(i*div)+div
+    if(isIn){
       showBlock(x,y+(i*div),w,div,memory[i],"red")
       stroke("white")
       text("b-"+i,x+w+5,y+(i*div)+div/2+5)
@@ -98,7 +192,25 @@ function showMemory(x,y,w,h,memory){
       showBlock(x,y+(i*div),w,div,memory[i],"white")
     }
   }
+  const newDivSize = numBlock/cachelength
+  const newDiv = h/newDivSize 
+  let newY = y
+  for(let i=0;i<newDivSize;i++){
+    let colorIndex = i%(colors.length-1)
+    strokeWeight(3)
+    // highlightBlock(x,newY,w,newDiv,colors[colorIndex])
+    highlightBlock(x,newY,w,newDiv,"black")
+    newY +=newDiv
+  }
+    strokeWeight(1)
+
 }
+function highlightBlock(x,y,w,h,c){
+  stroke(c)
+  strokeWeight(2)
+  rect(x,y,w,h)
+}
+
 
 class Cache{
   constructor(length,tagLength,wordPerBlock,wordSize){
@@ -107,62 +219,98 @@ class Cache{
     this.tagCount = tagLength
     this.wordPerBlock = wordPerBlock
     this.wordSize = wordSize
-    
+    this.x=0
+    this.y=0
+    this.w=0
+    this.h=0
+
     for(let i =0;i<length;i++){// intalize with empty
      let blockLine = '-'.repeat(this.tagCount+this.wordPerBlock*this.wordSize)
      this.lines[i]={block:blockLine,i}
     }
+    
   }
   show(x,y,w,h){
+    this.x=x
+    this.y=y
+    this.w=w
+    this.h=h
+
+
     let div = h/this.length
     let color ="red"
     for(let i=0;i<this.length;i++){
-      this.showCacheWord(x,y+(i*div),w,div,this.lines[i].block,color,this.tagCount)
+      this.showCacheGrid(x,y+(i*div),w,div,this.lines[i].block,color,tagCount)
       const isIn = mouseX>x && mouseX<x+w && mouseY>y+(i*div) && mouseY<y+(i*div)+div
       if(isIn){
         stroke("white")
         let nowBlock = metaMemory[this.lines[i].i]
-        console.log(this.lines[i].block)
-        if(this.lines[i].block!='-'.repeat(this.tagCount+2*wordSize)){
+        const stn = '-'.repeat(this.tagCount+this.wordPerBlock*wordSize)
+        if(this.lines[i].block!=stn){
           line(x+w,y+(i*div),nowBlock.x,nowBlock.y+nowBlock.div/2)
+          highlightBlock(nowBlock.x,nowBlock.y,nowBlock.w,nowBlock.div,"red")
         }
         text("l-"+i,x+w+5,y+(i*div)+div/2+5)
       }
+      this.showCacheWord(x, y+(i*div), w, div, this.lines[i].block)
     }
   }
-  copyDirect(memory,instructionIndex){
+  copyDirect(memory, instructionIndex, clock=0){
       let tag = gettag(instructionIndex)
       let line = getline(instructionIndex)
-      let blocknum = tag*cachelength+line
+      let blocknum = (tag*cachelength) + line
       let block =memory[blocknum]
       
       let tagnum = toBinary(tag,tagCount)
       let blockLine= [].concat(...tagnum,...block)
       this.addBlock(blockLine,line,blocknum)
   }
+  copyAssosiative(memory,instructionIndex){
+      let tag = gettag(instructionIndex)
+      let line = getline(instructionIndex)
+      let newTag = tag+line
+      let blocknum = (newTag*cachelength) 
+      let block =memory[blocknum]
+    console.log(block)
+      
+      // let tagnum = toBinary(tag,tagCount)
+      // let blockLine= [].concat(...tagnum,...block)
+      // this.addBlock(blockLine,random(cache.lines.length),blocknum)
+  }
   addBlock(block,lineIndex,blockIndex){
     this.lines[lineIndex] ={block,i:blockIndex}
   }
-  showCacheWord(x,y,w,h,word,recColor="white",tagLength =0){
+  highlightcache(i){
+         let div = this.h/this.length
+        highlightBlock(this.x,this.y+(i*div),this.w,div,"yellow")
+  }
+  showCacheGrid(x,y,w,h,word,recColor="white",tagLength =0){
      let div = w/word.length
-     for(let i =x, j=0; i<x+w,j<word.length;  i+=div,j++){
-       if(tagLength>0 && j<tagLength){
-         stroke(recColor)
-         fill(255,0,0,50)
+       for(let i =x, j=0; i<x+w,j<word.length;  i+=div,j++){
+         if(tagLength>0 && j<tagLength){
+           stroke(recColor)
+           fill(255,0,0,50)
+         }
+         else if(tagLength>0 && j>=tagLength){
+           noFill()
+           stroke("white")
+         }
+         rect(i,y,div,h);
        }
-       else if(tagLength>0 && j>=tagLength){
-         noFill()
-         stroke("white")
+  }
+  showCacheWord(x,y,w,h,word){
+    let div = w/word.length
+    for(let i=0; i<this.length; i++){
+       for(let i =x, j=0; i<x+w,j<word.length;  i+=div,j++){
+         let num = word[j]
+         textSize(20)
+         if(num==0)
+           stroke(0)
+         if(num==1)
+           stroke(255)
+         text(num,i+div/2,y+h/2+5)
        }
-       rect(i,y,div,h);
-       let num = word[j]
-       textSize(20)
-       if(num==0)
-         stroke(0)
-       if(num==1)
-         stroke(255)
-       text(num,i+div/2,y+h/2+5)
-   }
+    }
   }
 }
 
@@ -173,10 +321,25 @@ function gettag(i){
   let tagBin =splited[0]
   return parseInt(tagBin.join(""), 2);
 }
+function getCacheTag(line){
+  const block =cache.lines[line].block
+  const blockLine = '-'.repeat(tagCount+ (wordPerBlock*wordSize) )
+  if(block!=blockLine){
+    const tagArray = block.splice(0,tagCount)
+    return parseInt(tagArray.join(""),2)
+  }
+  return null
+}
 function getline(i){
   let latestInstruction =instructions[i]
   let splited =R.splitAt(2,latestInstruction)
   let lineBin =R.splitAt(2,splited[1])[0]
+  return parseInt(lineBin.join(""), 2);
+}
+function getword(i){
+  let latestInstruction =instructions[i]
+  let splited =R.splitAt(2,latestInstruction)
+  let lineBin =R.splitAt(2,splited[1])[1]
   return parseInt(lineBin.join(""), 2);
 }
 function randomWord(size){
@@ -196,6 +359,74 @@ function toBinary(n,len){
   if (bin.length < len)
     bin = '0'.repeat(len - bin.length) + bin
   return bin
+}
+function clock(n){
+
+  for(let i =0;i<cache.length;i++){// intalize with empty
+     let blockLine = '-'.repeat(cache.tagCount+cache.wordPerBlock*cache.wordSize)
+     cache.lines[i]={block:blockLine,i}
+  }
+
+  for(let i=0;i<n;i++){
+
+    if(instructions[i]==null){
+        instructions[i]= makeInstruction(instructionSize)
+        missHit[i] = isMiss(i,mapping)
+    }
+    if(missHit[i] && mapping=="direct"){
+       cache.copyDirect(memory,i)
+    }
+    if(missHit[i] && mapping=="associtive"){
+       cache.copyAssosiative(memory,i)
+    }
+    const y = height/2+20+(i+1)*30
+    const isIn = mouseX>10 && mouseX<10+width/2 && mouseY>y && mouseY<y+30
+    const currentTag = gettag(i)
+    const currentLine = getline(i)
+    if(isIn){
+      showWord(10,y,width/2,30, instructions[i],"yellow")
+      cache.highlightcache(currentLine)
+      const tag = gettag(i)
+      const line = getline(i)
+      const word = getword(i)
+      let blocknum = (tag*cachelength) + line
+      const newblock = metaMemory[blocknum]
+      const index = word*newblock.div/wordPerBlock
+      highlightBlock(newblock.x, newblock.y+index, newblock.w, newblock.div/(wordPerBlock),"yellow")
+    }
+    else 
+      showWord(10,y,width/2,30, instructions[i])
+
+    stroke("red")
+    if(missHit[i])
+      text("M",width/2+20,height/2+40+(i+1)*30)
+    stroke("cyan")
+    if(missHit[i]==false)
+      text("H",width/2+20,height/2+40+(i+1)*30)
+  }
+    prevButton.position(10,height/2+25+(n+2)*30)
+    nextButton.position(100,height/2+25+(n+2)*30)
+    // stroke("blue")
+    // text("hello",190,height/2+50+(n+2)*30)
+
+}
+function isMiss(i,mapping){
+    const currentTag = gettag(i)
+  if(mapping=="direct"){
+    const currentLine = getline(i)
+    const cacheTag = getCacheTag(currentLine)
+    if(cacheTag === currentTag)
+      return false
+    return true
+  }
+  else if(mapping="associtive"){
+    for(i=0;i<cache.lines.length;i++){
+      let cacheTag = getCacheTag(i)
+      if(cacheTag==currentTag)
+        return false
+    }
+    return true
+  }
 }
 
 // for responsiveness
