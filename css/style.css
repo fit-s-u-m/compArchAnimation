@@ -11,19 +11,21 @@ canvas {
 
 #allSketch{
   display: flex;
+  flex-direction: column;
 }
 
 #one {
   display: block;
-  width: 800px;
-  height: 600px;
+  /* width: 800px; */
+  height:100vh;
+  /* height: 900px; */
 }
 
 #two {
   display: block;
-  margin-top: 10px;
-  width: 800px;
-  height: 600px;
+  margin-top: 5px;
+  /* width: 800px; */
+  /* height: 900px; */
 }
 
 /* Options in index.html */
@@ -62,4 +64,18 @@ canvas {
   font-style: normal;
   font-variant: small-caps;
   text-transform: none;
+}
+.form{
+  background-color:rgb(100,100, 100);
+  display:flex;
+  justify-content: center;
+  align-content: center;
+  align-items: center;
+  margin: 0px;
+  padding-top: 10px;
+  gap:5rem;
+}
+
+input{
+  width:5rem;
 }

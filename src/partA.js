@@ -25,6 +25,7 @@ let nextButton
 let mapping = "direct"
 
 
+
 const colors = ["blue","green","yellow","purple","cyan"]
 
 const memory = []
@@ -83,12 +84,27 @@ sketch.setup = function(){
   
   makeMemory (numBlock,wordPerBlock,wordSize)
   cache=new Cache (cachelength,tagCount,wordPerBlock,wordSize) // create a cache
+
+  // set up inital value
+  numBlock = numBlockInput.value()
+  wordSize = wordSizeInput.value()
+  cachelength = cachelengthInput.value()
+  wordPerBlock = wordPerBlockInput.value()
+  mapping = mappingInput.value()
+
 }
 function reDraw(){
   memory.length=0
   metaMemory.length=0
   makeMemory (numBlock,wordPerBlock,wordSize)
   cache=new Cache (cachelength,tagCount,wordPerBlock,wordSize) // create a cache
+  
+  numBlock = numBlockInput.value()
+  wordSize = wordSizeInput.value()
+  cachelength = cachelengthInput.value()
+  wordPerBlock = wordPerBlockInput.value()
+  mapping = mappingInput.value()
+
 }
 function prev(){
   if(n>0)
@@ -111,36 +127,25 @@ function setMapping(){
   instructionSize = tagCount+lineCount+wordCount 
 }
 
-// setInterval(step,3000)
 
 sketch.draw = function(){
   colorMode(RGB)
   background(100)
   strokeWeight(1)
   noFill()
-  numBlock = numBlockInput.value()
-  wordSize = wordSizeInput.value()
-  cachelength = cachelengthInput.value()
-  wordPerBlock = wordPerBlockInput.value()
-  mapping = mappingInput.value()
 
   numBlockInput.changed(reDraw)
   wordSizeInput.changed(reDraw)
   cachelengthInput.changed(reDraw)
   wordPerBlockInput.changed(reDraw)
-  mappingInput.changed(reDraw)
+  mappingInput.changed(()=>{reDraw();instructions.length=0;})
 
   const buff = width/16
-  showMemory(width/2+buff,10,width/3+buff+buff/2,height-30,memory) // display the memory
+  showMemory(width/2+buff - 15,10,width/3+buff+buff/2,height-30,memory) // display the memory
   cache.show(10,10,width/2+50,height/4) // display the cache
   setMapping()
-
   clock(n)
 }
-
-
-
-
 
 
 function makeMemory(numBlock,wordPerBlock,wordSize){
@@ -235,10 +240,12 @@ class Cache{
     this.y=y
     this.w=w
     this.h=h
+    strokeWeight(1)
 
 
     let div = h/this.length
     let color ="red"
+    strokeWeight(1)
     for(let i=0;i<this.length;i++){
       this.showCacheGrid(x,y+(i*div),w,div,this.lines[i].block,color,tagCount)
       const isIn = mouseX>x && mouseX<x+w && mouseY>y+(i*div) && mouseY<y+(i*div)+div
@@ -266,16 +273,31 @@ class Cache{
       this.addBlock(blockLine,line,blocknum)
   }
   copyAssosiative(memory,instructionIndex){
-      let tag = gettag(instructionIndex)
-      let line = getline(instructionIndex)
-      let newTag = tag+line
-      let blocknum = (newTag*cachelength) 
-      let block =memory[blocknum]
-    console.log(block)
+    let tag = getAssociativeTag(instructionIndex)
+    let block =memory[tag]
+    let tagnum = toBinary(tag,tagCount)
+    let blockLine= [].concat(...tagnum,...block)
+
+    if(metaInstruction[instructionIndex]){
+       this.addBlock(blockLine,metaInstruction[instructionIndex].i,tag)
+    }
+    else {
+      let randomPlace
+      cache.lines.forEach(line=>{
+        if(! Array.isArray(line.block))
+          randomPlace = line.i
+      })
+      metaInstruction[instructionIndex] = {i:randomPlace}
+      this.addBlock(blockLine,randomPlace,tag)
+      // console.log(isMiss(instructionIndex,"associtive"))
+      if (!randomPlace && isMiss(instructionIndex,"associtive")){
+      setTimeout(()=>{
+           window.alert("no Place to put in")
+      },50)
+
+      }
+    }
       
-      // let tagnum = toBinary(tag,tagCount)
-      // let blockLine= [].concat(...tagnum,...block)
-      // this.addBlock(blockLine,random(cache.lines.length),blocknum)
   }
   addBlock(block,lineIndex,blockIndex){
     this.lines[lineIndex] ={block,i:blockIndex}
@@ -291,10 +313,14 @@ class Cache{
            stroke(recColor)
            fill(255,0,0,50)
          }
-         else if(tagLength>0 && j>=tagLength){
-           noFill()
+         else if(tagLength>0 && j>=tagLength && j<tagLength+(word.length/2)-1){
+           fill("gray")
            stroke("white")
          }
+         else{
+           stroke("white")
+           noFill()
+         } 
          rect(i,y,div,h);
        }
   }
@@ -321,10 +347,23 @@ function gettag(i){
   let tagBin =splited[0]
   return parseInt(tagBin.join(""), 2);
 }
+
+function getAssociativeTag(i){
+  let latestInstruction =instructions[i]
+  let tagBin = R.take(latestInstruction.length-wordCount,latestInstruction)  
+  return parseInt(tagBin.join(""), 2);
+}
+
+function getAssociativeWord(i){
+  let latestInstruction =instructions[i]
+  let wordBin = R.takeLast(wordCount,latestInstruction)
+  return parseInt(wordBin.join(""), 2);
+}
 function getCacheTag(line){
   const block =cache.lines[line].block
   const blockLine = '-'.repeat(tagCount+ (wordPerBlock*wordSize) )
-  if(block!=blockLine){
+  const isCacheEmpty = ! Array.isArray(block)
+  if(! isCacheEmpty){
     const tagArray = block.splice(0,tagCount)
     return parseInt(tagArray.join(""),2)
   }
@@ -383,7 +422,7 @@ function clock(n){
     const isIn = mouseX>10 && mouseX<10+width/2 && mouseY>y && mouseY<y+30
     const currentTag = gettag(i)
     const currentLine = getline(i)
-    if(isIn){
+    if(isIn && mapping=="direct"){
       showWord(10,y,width/2,30, instructions[i],"yellow")
       cache.highlightcache(currentLine)
       const tag = gettag(i)
@@ -391,6 +430,19 @@ function clock(n){
       const word = getword(i)
       let blocknum = (tag*cachelength) + line
       const newblock = metaMemory[blocknum]
+      const index = word*newblock.div/wordPerBlock
+      highlightBlock(newblock.x, newblock.y+index, newblock.w, newblock.div/(wordPerBlock),"yellow")
+    }
+    else if(isIn && mapping=="associtive"){
+      showWord(10,y,width/2,30, instructions[i],"yellow")
+      if(metaInstruction[i]){
+      cache.highlightcache(metaInstruction[i].i)
+      }
+
+      const tag = getAssociativeTag(i)
+      const word = getAssociativeWord(i)
+
+      const newblock = metaMemory[tag]
       const index = word*newblock.div/wordPerBlock
       highlightBlock(newblock.x, newblock.y+index, newblock.w, newblock.div/(wordPerBlock),"yellow")
     }
@@ -406,9 +458,6 @@ function clock(n){
   }
     prevButton.position(10,height/2+25+(n+2)*30)
     nextButton.position(100,height/2+25+(n+2)*30)
-    // stroke("blue")
-    // text("hello",190,height/2+50+(n+2)*30)
-
 }
 function isMiss(i,mapping){
     const currentTag = gettag(i)
@@ -421,6 +470,8 @@ function isMiss(i,mapping){
   }
   else if(mapping="associtive"){
     for(i=0;i<cache.lines.length;i++){
+      if(cache.lines[i].block=="-".repeat(cache.tagCount+cache.wordPerBlock*cache.wordSize))
+        continue
       let cacheTag = getCacheTag(i)
       if(cacheTag==currentTag)
         return false
