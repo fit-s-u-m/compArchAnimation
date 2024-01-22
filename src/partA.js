@@ -23,7 +23,13 @@ let wordPerBlockInput
 let prevButton
 let nextButton 
 let mapping = "direct"
-
+let replacement = null 
+let LRU=[]
+let FIFO=[]
+let hitCount=Array(cachelength).fill(0)
+let whichLine=[]
+let sets=[]
+let numSet=2
 
 
 const colors = ["blue","green","yellow","purple","cyan"]
@@ -84,6 +90,7 @@ sketch.setup = function(){
   
   makeMemory (numBlock,wordPerBlock,wordSize)
   cache=new Cache (cachelength,tagCount,wordPerBlock,wordSize) // create a cache
+  makeSets(numSet)
 
   // set up inital value
   numBlock = numBlockInput.value()
@@ -93,18 +100,20 @@ sketch.setup = function(){
   mapping = mappingInput.value()
 
 }
+
 function reDraw(){
   memory.length=0
   metaMemory.length=0
   makeMemory (numBlock,wordPerBlock,wordSize)
   cache=new Cache (cachelength,tagCount,wordPerBlock,wordSize) // create a cache
+  hitCount=Array(cachelength).fill(0)
   
   numBlock = numBlockInput.value()
   wordSize = wordSizeInput.value()
   cachelength = cachelengthInput.value()
   wordPerBlock = wordPerBlockInput.value()
   mapping = mappingInput.value()
-
+  makeSets(numSet)
 }
 function prev(){
   if(n>0)
@@ -112,6 +121,7 @@ function prev(){
 }
 function next(){
    n++
+   makeSets(numSet)
 }
 function setMapping(){
   if(mapping=="direct"){
@@ -127,7 +137,6 @@ function setMapping(){
   instructionSize = tagCount+lineCount+wordCount 
 }
 
-
 sketch.draw = function(){
   colorMode(RGB)
   background(100)
@@ -138,7 +147,7 @@ sketch.draw = function(){
   wordSizeInput.changed(reDraw)
   cachelengthInput.changed(reDraw)
   wordPerBlockInput.changed(reDraw)
-  mappingInput.changed(()=>{reDraw();instructions.length=0;})
+  mappingInput.changed(()=>{reDraw();instructionSize=0;n=0})
 
   const buff = width/16
   showMemory(width/2+buff - 15,10,width/3+buff+buff/2,height-30,memory) // display the memory
@@ -203,13 +212,12 @@ function showMemory(x,y,w,h,memory){
   for(let i=0;i<newDivSize;i++){
     let colorIndex = i%(colors.length-1)
     strokeWeight(3)
-    // highlightBlock(x,newY,w,newDiv,colors[colorIndex])
     highlightBlock(x,newY,w,newDiv,"black")
     newY +=newDiv
   }
     strokeWeight(1)
-
 }
+
 function highlightBlock(x,y,w,h,c){
   stroke(c)
   strokeWeight(2)
@@ -278,23 +286,61 @@ class Cache{
     let tagnum = toBinary(tag,tagCount)
     let blockLine= [].concat(...tagnum,...block)
 
-    if(metaInstruction[instructionIndex]){
-       this.addBlock(blockLine,metaInstruction[instructionIndex].i,tag)
+
+    if(whichLine[instructionIndex]){ // if its already in the line
+       this.addBlock(blockLine,whichLine[instructionIndex],tag)
     }
     else {
-      let randomPlace
+      let place
       cache.lines.forEach(line=>{
         if(! Array.isArray(line.block))
-          randomPlace = line.i
+          place = line.i
       })
-      metaInstruction[instructionIndex] = {i:randomPlace}
-      this.addBlock(blockLine,randomPlace,tag)
-      // console.log(isMiss(instructionIndex,"associtive"))
-      if (!randomPlace && isMiss(instructionIndex,"associtive")){
-      setTimeout(()=>{
-           window.alert("no Place to put in")
-      },50)
+      whichLine[instructionIndex] = place
+      this.addBlock(blockLine,place,tag)
+      LRU.unshift(place)
+      if (!place && isMiss(instructionIndex,"associtive") && !replacement){
+            window.alert("no place in cache")
+           // replacement = window.prompt("no Place to put in write a replacement technique")
+      }
+      FIFO.push(whichLine[instructionIndex])
 
+      if(replacement){
+        switch (replacement){
+          case "FIFO":
+              const longUsed = FIFO.pop()
+              metaInstruction[instructionIndex] = {i:longUsed}
+              this.addBlock(blockLine,longUsed,tag)
+              LRU.unshift(longUsed)
+            break;
+          case "LRU":
+              const leastUsed = LRU.pop()
+              metaInstruction[instructionIndex] = {i:leastUsed}
+              this.addBlock(blockLine,leastUsed,tag)
+              LRU.unshift(leastUsed)
+            break;
+          case "RANDOM":
+              const random = Math.floor(Math.random()*cachelength)
+              metaInstruction[instructionIndex] = {i:random}
+              this.addBlock(blockLine,random,tag)
+              LRU.unshift(leastUsed)
+            break;
+          case "LFU":
+            let leastFrequentlyUsed 
+            let temp=100
+            for(cacheLine in cache.lines){
+              if(hitCount[cacheLine]<temp){
+                temp = hitCount[cacheLine]
+                leastFrequentlyUsed.push(temp)
+              }
+            }
+            const leastFrequent = leastFrequentlyUsed[leastFrequentlyUsed.length-1]
+            metaInstruction[instructionIndex] = {i:leastFrequent}
+            this.addBlock(blockLine,leastFrequent,tag)
+            break;
+          default:
+
+        }
       }
     }
       
@@ -351,6 +397,17 @@ function gettag(i){
 function getAssociativeTag(i){
   let latestInstruction =instructions[i]
   let tagBin = R.take(latestInstruction.length-wordCount,latestInstruction)  
+  return parseInt(tagBin.join(""), 2);
+}
+
+function getSetAssociativeTag(i){
+  let latestInstruction =instructions[i]
+  let tagBin = R.take(numSet,latestInstruction)  
+  return parseInt(tagBin.join(""), 2);
+}
+function getSet(i){
+  let latestInstruction =instructions[i]
+  let tagBin = R.last(latestInstruction.length-numSet,latestInstruction)  
   return parseInt(tagBin.join(""), 2);
 }
 
@@ -435,8 +492,9 @@ function clock(n){
     }
     else if(isIn && mapping=="associtive"){
       showWord(10,y,width/2,30, instructions[i],"yellow")
-      if(metaInstruction[i]){
-      cache.highlightcache(metaInstruction[i].i)
+      console.log( whichLine[i] )
+      if(whichLine[i]!=null){
+         cache.highlightcache(whichLine[i])
       }
 
       const tag = getAssociativeTag(i)
@@ -469,14 +527,46 @@ function isMiss(i,mapping){
     return true
   }
   else if(mapping="associtive"){
+    const currentTag = getAssociativeTag(i)
+
     for(i=0;i<cache.lines.length;i++){
       if(cache.lines[i].block=="-".repeat(cache.tagCount+cache.wordPerBlock*cache.wordSize))
         continue
       let cacheTag = getCacheTag(i)
-      if(cacheTag==currentTag)
+      if(cacheTag==currentTag){
+        hitCount[cache.lines[i]]+=1
         return false
+      }
     }
     return true
+  }
+  else if(mapping="set associtive"){
+    const currentTag = getSetAssociativeTag(i)
+    const currentSetIndex = getSet(i)
+    const currentSet = sets[currentSetIndex]
+    const setCount  = sets.length 
+    const count = cache.lines.length/setCount
+
+    for(i=0;i<currentSet.length;i++){
+      if(cache.lines[i].block=="-".repeat(cache.tagCount+cache.wordPerBlock*cache.wordSize))
+        continue
+      let cacheTag = getCacheTag(i)
+      if(cacheTag==currentTag){
+        hitCount[cache.lines[i]]+=1
+        return false
+      }
+    }
+    return true
+  }
+}
+function makeSets(n){
+  for(let i=0;i<n;i++){
+    let set =[]
+    let start = n*i
+    for(let j=start;j<n*(i+1);j+=1){
+      set[j]=cache.lines[j]
+    }
+    sets[i]= set
   }
 }
 
